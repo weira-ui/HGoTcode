@@ -103,7 +103,7 @@ def all_answers(question, qa_triples):
 
 
 
-# 寻找尾实体
+# Find the tail entity
 def find_tail_entity(head_entity, relation):
     # print("relation:", relation)
     # relation=match_entities("./2wiki/relation2id.txt", "./2wiki/re_embeddings.json", relation)
@@ -116,16 +116,16 @@ def find_tail_entity(head_entity, relation):
         RETURN collect(tail.name) AS tail_entity
         """
 
-        # 执行查询
+        # Execute a query
         result = session.run(query)
-        # 执行查询
+        # Execute a query
         # result = session.run(query)
         for record in result:
             tail_entities = record["tail_entity"]
         return tail_entities
 
 
-# 合并 lists
+# Merging lists
 def combine_lists(*lists):
     if lists != ():
         combinations = list(itertools.product(*lists))
@@ -143,7 +143,7 @@ def combine_lists(*lists):
         return []
 
 
-# 获取实体的邻居
+# Get the neighbors of an entity
 def get_entity_neighbors(entity_name: str) -> List[List[str]]:
     query = """
     MATCH (e:Entity)-[r]->(n)
@@ -165,7 +165,7 @@ def get_entity_neighbors(entity_name: str) -> List[List[str]]:
     return neighbor_list
 
 
-# 构建prompt，使用知识图谱信息，创建基于路径的证据
+# Build prompts, use knowledge graph information, and create path-based evidence
 def prompt_path_finding(path_input):
     if len(path_input) != 0:
         template = """
@@ -179,10 +179,10 @@ def prompt_path_finding(path_input):
         Output:
         """
 
-        # 格式化模板字符串
+        # Formatting template strings
         formatted_template = template.format(path_input)
 
-        # 构建消息列表
+        # Building a message list
         messages = [
             {"role": "system", "content": formatted_template},
             {"role": "user", "content": "{text}"}
@@ -202,7 +202,7 @@ def prompt_path_finding(path_input):
         return []
 
 
-# 构建prompt，使用知识图谱信息，创建基于邻居的证据
+# Build prompts, use knowledge graph information, and create neighbor-based evidence
 def prompt_neighbor(neighbor):
     if len(neighbor) != 0:
         template = """
@@ -216,20 +216,20 @@ def prompt_neighbor(neighbor):
         Output:
         """
 
-        # 格式化模板字符串
+        # Formatting template strings
         formatted_template = template.format(neighbor)
 
         human_template = "{text}"
 
-        # 组合系统消息和人类消息
+        # Combining system and human messages
         chat_prompt = "{}\n\n{}".format(neighbor, {})
 
-        # 2.直接构建messages
+        # 2.Build messages directly
         messages = [
             {"role": "system", "content": chat_prompt},
             # {"role": "user", "content": human_message_prompt}
             # SystemMessage(content=prompt.format(Path=path_input)),
-            # HumanMessage(content="{text}")  # 这里可能需要替换为实际的文本内容
+            # HumanMessage(content="{text}")  # This may need to be replaced with actual text content
         ]
         # response_of_KG_neighbor = chat(chat_prompt_with_values.to_messages()).content
         res = client.chat.completions.create(
@@ -247,7 +247,7 @@ def prompt_neighbor(neighbor):
         return []
 
 
-# 判断是否无法回答
+# Determine if the answer is unavailable
 def answer_refine(root_path, question, finalanswer):
     template = """
     Does the current answer fit the question? Answer yes or no
@@ -272,7 +272,7 @@ def answer_refine(root_path, question, finalanswer):
         return final_search(root_path, sub_question)
 
 
-# 文本处理
+#Text Processing
 def autowrap_text(text, font, max_width):
     text_lines = []
     if font.getsize(text)[0] <= max_width:
@@ -292,7 +292,7 @@ def autowrap_text(text, font, max_width):
     return text_lines
 
 
-# 文档匹配提示词
+# Document matching hint words
 # def prompt_document(question, instruction):
 #     template = """
 #     You are an excellent AI doctor, and you can diagnose diseases and recommend medications based on the symptoms in the conversation.\n\n
@@ -327,7 +327,7 @@ def run_graphrag_query(root_path, query):
 
 def document_search(root_path, sub_question, tail_entity, neighbor_list):
     if tail_entity != None and neighbor_list != None:
-        # 构建提示文本模板
+        # Building a prompt text template
         prompt_template = (
             """
             You will be given an incomplete knowledge graph triple (Head Entity, Relation, ?), a potential correct Tail Entity, and some related neighbor triples. Please verify the provided Tail Entity by checking the document excerpts. If it is correct, confirm the Tail Entity and validate the provided related neighbor triples; if it is incorrect, provide the correct Tail Entity and find any relevant neighbor triples in the document. When no document excerpt is provided to verify or correct this information, rely on the model's own knowledge.
@@ -356,7 +356,7 @@ def document_search(root_path, sub_question, tail_entity, neighbor_list):
         )
         prompt = prompt_template.format(sub_question, tail_entity, neighbor_list)
     if tail_entity != None and neighbor_list == None:
-        # 构建提示文本模板
+        # Building a prompt text template
         prompt_template = (
             """
             You will be given an incomplete knowledge graph triple (Head Entity, Relation, ?) and a potential correct Tail Entity. Please verify the provided Tail Entity by checking the document excerpts. If it is correct, confirm the Tail Entity; if it is incorrect, provide the correct Tail Entity. Additionally, find any relevant neighbor triples in the document.When no document excerpt is provided to verify or correct this information, rely on the model's own knowledge.
@@ -407,7 +407,7 @@ def document_search(root_path, sub_question, tail_entity, neighbor_list):
         )
         prompt = prompt_template.format(sub_question, neighbor_list)
     if tail_entity == None and neighbor_list == None:
-        # 构建提示文本模板
+        # Building a prompt text template
         prompt_template = (
             """
             You will be given an incomplete knowledge graph triple (Head Entity, Relation, ?). Please use the document excerpts to verify and complete the missing Tail Entity. If the Tail Entity can be confirmed based on the document content, confirm it; otherwise, provide the correct Tail Entity. Additionally, find any relevant neighbor triples in the document.When no document excerpt is provided to verify or correct this information, rely on the model's own knowledge.
@@ -437,13 +437,13 @@ def document_search(root_path, sub_question, tail_entity, neighbor_list):
 
 
 def final_search(root_path, question):
-    # 构建提示文本模板
+    # Building a prompt text template
     prompt_template = (
         # "Please answer the following question using the provided knowledge graph triples. Ensure that your response is based on the information given in these triples.\n\n"
 
         """First, identify the main topic of the question about {question}. Then, summarize the answer in one word or a very short phrase without additional explanation or context."""
     )
-    # 使用 format 方法插入问题和三元组
+    # Use the format method to insert questions and triples
     prompt = prompt_template.format(question=question)
     response = run_graphrag_query(root_path, prompt)
     return response.response
@@ -483,13 +483,12 @@ def generated_sub_answer(sub_question, tail_entity, documents):
 
 
 if __name__ == "__main__":
-    # 设置OpenAI API密钥
+    # Setting up an OpenAI API key
     YOUR_OPENAI_KEY = 'sk-1111111111111111111'  # replace this to your key
     root_path = 'F:/code/HToG-RAG/2wiki'
     os.environ['OPENAI_API_KEY'] = YOUR_OPENAI_KEY
     openai.api_key = YOUR_OPENAI_KEY
-    # 建立到Neo4j数据库的连接
-    # 1. build neo4j knowledge graph datasets构建neo4j知识图谱数据集
+
     uri = "bolt://localhost:7687"
     username = "neo4j"
     password = "12345678"
@@ -502,7 +501,7 @@ if __name__ == "__main__":
     # session.run("MATCH (n) DETACH DELETE n")
     # read triples
     # df = pd.read_csv('./download/raw_data/2wikimultihopqa/train.txt', sep='\t', header=None, names=['head', 'relation', 'tail'],quoting=3)
-    # # 确保所有列都转换为字符串类型
+    # # Make sure all columns are converted to string type
     # df['head'] = df['head'].astype(str)
     # df['relation'] = df['relation'].astype(str)
     # df['tail'] = df['tail'].astype(str)
@@ -518,21 +517,21 @@ if __name__ == "__main__":
     #     )
     #     session.run(query, head_name=head_name, tail_name=tail_name, relation_name=relation_name)
 
-    # 2. 关键词提取和实体匹配
+    # 2. Keyword extraction and entity matching
 
     OPENAI_API_KEY = YOUR_OPENAI_KEY
     base_url = "http://127.0.0.1:11434/v1/"
     client = OpenAI(api_key="EMPTY", base_url=base_url)
-    # 读取问题数据
+    # Reading problem data
     # with open("./download/raw_data/2wikimultihopqa/questions_and_answers_1_100.json", "r",encoding='utf-8') as f:
     with open("2wiki/qaes.json", "r", encoding='utf-8') as f:
         content = f.read()
-        # 将 JSON 字符串解析为 Python 对象
+       
         data = json.loads(content)
-        # 初始化 question_list 和 output_text
+      
         qa_triples = []
         result = []
-        # 遍历 JSON 数据
+       
         i = 1
         for item in data:
             if i <= 10:
@@ -541,7 +540,7 @@ if __name__ == "__main__":
                 break
 
             # print("i:",i)
-            # 将新的JSON数据写入文件
+            # Write new JSON data to the file
             with open('2wiki/reslt_subqa.json', 'w') as sbqa:
                 question = item['question']
                 answer = item['answer']
@@ -552,20 +551,20 @@ if __name__ == "__main__":
                 all_sub_answers = []
                 sub_answers = []
                 for sq in sub_q:
-                    # 初始化空列表
+                   # Initialize an empty list
                     try:
                         sq_num = next(key for key in sq if key.startswith("Sub-question"))
                         # print("sq_num:", sq_num)
                         sub_question = sq[sq_num]
                         # print("     sub_question:", sub_question)
                     except StopIteration:
-                        print("未找到以 'Sub-question' 开头的键")
+                        print("No key found starting with 'Sub-question'")
                     except Exception as e:
-                        print(f"发生其他错误: {e}")
+                        print(f"Other errors occurred: {e}")
                     Steps = sq["Steps to Answer"]
                     if len(sq["match_kg"]) != 0:
                         if sq["Dependencies"] != "None":
-                            # 根据依赖关系，更新当前子问题
+                            # Update the current sub_question based on dependencies
                             sub_question = sub_question.replace(sq_num, sub_qa_list[sq_num])
                             head_entity, relation = sq["match_kg"]
                             head_entity= sub_qa_list[sq_num]
@@ -575,25 +574,25 @@ if __name__ == "__main__":
                         head_entity, relation = sub_question.split(",")[0].split("(")[1], sub_question.split(",")[1]
                     tail_entity = find_tail_entity(head_entity, relation)
                     print(" tail_entity:", tail_entity)
-                    # 知识图谱邻居实体
+                
                     neighbor_list = []
                     neighbors = get_entity_neighbors(head_entity)
                     neighbor_list.extend(neighbors)
                     # print(" neighbor_list:", neighbor_list)
 
-                    # 文档检索
+                    
                     documents = document_search(root_path, sub_question, tail_entity, neighbor_list)
-                    # print("     文档检索结果:", documents)
-                    # 将每个子问题推理出答案
-                    # 8. answer generation 子问题答案生成
+                    # print("     Document retrieval results:", documents)
+                    
+                    # 8. answer generation 
                     sub_answer = generated_sub_answer(sub_question, tail_entity, documents)
                     print("     sub_answer:", sub_answer)
-                    # 保存子问题的结果，即？代表的尾实体
+                    
                     sub_answer_dict = {
                         sq_num: sub_answer
                     }
                     sub_qa_list.append(sub_answer_dict)
-                    # 将原三元组的？用子问题答案替换
+                    
                     # if tail_entity:
                     qa_triple = {
                         sq_num: sub_question.replace("?", sub_answer)
@@ -614,9 +613,9 @@ if __name__ == "__main__":
                 }
                 print('HGot-RAG:', finally_answer)
                 print("---------------------------")
-                # # 构建新的JSON数据
+                
                 result.append(qa_dict)
 
-        # 将新的JSON数据写入文件
+        # Write new JSON data to a file
         with open('2wiki/reslt.json', 'w') as file:
             json.dump(result, file, indent=4)
